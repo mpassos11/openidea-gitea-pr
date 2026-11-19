@@ -133,6 +133,10 @@
           try { prs = JSON.parse(msg.data); } catch (e) { prs = []; }
           render(prs);
         }
+        if (msg.op === 'error') {
+          const empty = document.getElementById('empty');
+          if (empty) empty.textContent = 'Error: ' + (msg.message || 'unknown');
+        }
       } catch (e) {}
     });
     document.getElementById('refresh').addEventListener('click', refresh);

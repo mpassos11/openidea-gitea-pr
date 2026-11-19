@@ -137,7 +137,10 @@ impl Plugin for GiteaPr {
                 if let Some(t) = v.get("token").and_then(|x| x.as_str()) {
                     host::secret_set("gitea_token", t)?;
                 }
-                host::notify(NotificationLevel::Info, "Gitea PR", "Configuration saved.");
+                let msg = format!("Configuration saved: {}/{}", cfg.owner, cfg.repo);
+                host::notify(NotificationLevel::Info, "Gitea PR", &msg);
+                let _ = host::output_append("Gitea PR", &msg);
+                let _ = host::output_reveal("Gitea PR");
                 Ok(None)
             }
             "gitea-pr.list" => {
@@ -159,6 +162,8 @@ impl Plugin for GiteaPr {
                     .collect::<Vec<_>>()
                     .join("\n");
                 host::notify(NotificationLevel::Info, "Gitea PRs", if msg.is_empty() { "No PRs." } else { &msg });
+                let _ = host::output_append("Gitea PR", if msg.is_empty() { "No PRs." } else { &msg });
+                let _ = host::output_reveal("Gitea PR");
                 host::storage::set("prs", &body)?;
                 host::storage::set("page", &page.to_string())?;
                 host::storage::set("state", state)?;
@@ -254,7 +259,10 @@ impl openidea_plugin::views::Views for GiteaPr {
                     "refresh" | "list" => {
                         if let Some(st) = v.get("state").and_then(|x| x.as_str()) {
                             let arg = serde_json::json!({"state": st, "page": v.get("page").cloned().unwrap_or(serde_json::json!(1))}).to_string();
-                            let _ = self.run_command("gitea-pr.list", _ctx, Some(&arg));
+                            if let Err(e) = self.run_command("gitea-pr.list", _ctx, Some(&arg)) {
+                                let reply = serde_json::json!({"op":"error","message": e.to_string()}).to_string();
+                                let _ = host::post_view_message(VIEW, &reply);
+                            }
                         }
                         let data = host::storage::get("prs").unwrap_or(None).unwrap_or_else(|| "[]".into());
                         let reply = serde_json::json!({"op":"prs","data": data}).to_string();

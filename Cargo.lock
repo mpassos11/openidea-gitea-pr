@@ -105,7 +105,7 @@ dependencies = [
 
 [[package]]
 name = "openidea-plugin-gitea-pr"
-version = "0.1.4"
+version = "0.1.5"
 dependencies = [
  "openidea-plugin",
  "serde",
