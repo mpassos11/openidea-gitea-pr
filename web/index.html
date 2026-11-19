@@ -1,35 +1,179 @@
 <!DOCTYPE html>
-<html>
+<html lang="pt-BR">
 <head>
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Gitea Pull Requests</title>
 <style>
-  body { font-family: system-ui, sans-serif; margin: 12px; color: #ddd; background: #1e1e1e; }
-  h2 { margin: 0 0 8px; font-size: 14px; }
-  .pr { padding: 8px; border-bottom: 1px solid #333; }
-  .pr .title { font-weight: 600; }
-  .pr .meta { font-size: 12px; color: #999; }
-  .pr .actions { margin-top: 6px; display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
-  button { background: #2d6cdf; color: #fff; border: 0; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 12px; }
-  button.secondary { background: #444; }
-  input.comment { background: #2a2a2a; color: #ddd; border: 1px solid #444; padding: 4px 6px; border-radius: 4px; font-size: 12px; width: 60%; }
-  #empty { color: #999; font-style: italic; }
-  .filters { margin-bottom: 8px; display: flex; gap: 6px; }
-  .filters button { background: #444; }
-  .filters button.active { background: #2d6cdf; }
-  a.link { color: #6ea8fe; font-size: 12px; }
+  :root {
+    --bg: #1a1a1e;
+    --surface: #222228;
+    --surface-2: #2a2a31;
+    --border: #2f2f37;
+    --fg: #e6e6ea;
+    --muted: #8a8a94;
+    --accent: #5b8def;
+    --accent-soft: rgba(91, 141, 239, 0.14);
+    --danger: #e06c75;
+    --radius: 6px;
+    --space: 4px;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+    font-size: 13px;
+    line-height: 1.45;
+    color: var(--fg);
+    background: var(--bg);
+    padding: 12px;
+    -webkit-font-smoothing: antialiased;
+  }
+  h1 {
+    margin: 0 0 10px;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    color: var(--fg);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  h1::before {
+    content: "";
+    width: 3px;
+    height: 14px;
+    background: var(--accent);
+    border-radius: 2px;
+    display: inline-block;
+  }
+  .filters {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 10px;
+  }
+  .filters button {
+    background: var(--surface);
+    color: var(--muted);
+    border: 1px solid var(--border);
+    padding: 4px 10px;
+    border-radius: 999px;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 500;
+    transition: color 0.15s, background 0.15s, border-color 0.15s;
+  }
+  .filters button:hover { color: var(--fg); border-color: #3a3a44; }
+  .filters button.active {
+    background: var(--accent-soft);
+    color: var(--accent);
+    border-color: var(--accent);
+  }
+  #list { display: flex; flex-direction: column; gap: 8px; }
+  .pr {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 10px;
+    transition: border-color 0.15s;
+  }
+  .pr:hover { border-color: #3a3a44; }
+  .pr .title {
+    font-weight: 600;
+    font-size: 13px;
+    margin-bottom: 4px;
+    color: var(--fg);
+    word-break: break-word;
+  }
+  .pr .meta {
+    font-size: 11.5px;
+    color: var(--muted);
+    margin-bottom: 2px;
+    line-height: 1.4;
+    word-break: break-word;
+  }
+  .pr .meta .label { color: var(--accent); font-weight: 500; }
+  .pr .actions {
+    margin-top: 8px;
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  button {
+    background: var(--accent);
+    color: #fff;
+    border: 0;
+    padding: 4px 10px;
+    border-radius: var(--radius);
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 500;
+    transition: opacity 0.15s, transform 0.05s;
+  }
+  button:hover { opacity: 0.9; }
+  button:active { transform: translateY(1px); }
+  button.secondary {
+    background: var(--surface-2);
+    color: var(--fg);
+    border: 1px solid var(--border);
+  }
+  button.secondary:hover { border-color: #3a3a44; }
+  button.danger { background: var(--danger); }
+  input.comment {
+    background: var(--surface-2);
+    color: var(--fg);
+    border: 1px solid var(--border);
+    padding: 4px 8px;
+    border-radius: var(--radius);
+    font-size: 12px;
+    flex: 1 1 120px;
+    min-width: 100px;
+  }
+  input.comment::placeholder { color: var(--muted); }
+  input.comment:focus { outline: none; border-color: var(--accent); }
+  a.link {
+    color: var(--accent);
+    font-size: 11.5px;
+    text-decoration: none;
+    margin-left: auto;
+  }
+  a.link:hover { text-decoration: underline; }
+  #empty {
+    color: var(--muted);
+    font-style: italic;
+    font-size: 12px;
+    padding: 16px 0;
+    text-align: center;
+  }
+  .loading { color: var(--muted); font-size: 12px; padding: 16px 0; text-align: center; }
+  .error {
+    color: var(--danger);
+    font-size: 12px;
+    padding: 8px 10px;
+    background: rgba(224, 108, 117, 0.1);
+    border: 1px solid rgba(224, 108, 117, 0.3);
+    border-radius: var(--radius);
+    margin-bottom: 8px;
+  }
+  .toolbar { display: flex; justify-content: flex-end; margin-top: 8px; }
+  .toolbar button { background: var(--surface-2); color: var(--muted); border: 1px solid var(--border); }
+  .toolbar button:hover { color: var(--fg); }
 </style>
 </head>
 <body>
-  <h2>Open Pull Requests</h2>
-  <div class="filters">
-    <button data-state="open" class="active">Open</button>
-    <button data-state="closed">Closed</button>
-    <button data-state="all">All</button>
+  <h1>Pull Requests</h1>
+  <div class="filters" role="tablist">
+    <button data-state="open" class="active" role="tab">Abertos</button>
+    <button data-state="closed" role="tab">Fechados</button>
+    <button data-state="all" role="tab">Todos</button>
   </div>
+  <div id="error" class="error" hidden></div>
   <div id="list"></div>
-  <div id="empty">Loading…</div>
-  <button id="refresh" class="secondary">Refresh</button>
+  <div id="empty" class="loading">Carregando…</div>
+  <div class="toolbar">
+    <button id="refresh">Atualizar</button>
+  </div>
   <script>
     let currentState = 'open';
     function txt(s){ return (s == null ? '' : String(s)); }
@@ -44,17 +188,18 @@
 
       const meta = document.createElement('div');
       meta.className = 'meta';
-      meta.textContent = txt(p.state) + ' · ' + txt(p.user && p.user.login) + ' · ' + txt(p.head && p.head.label) + ' → ' + txt(p.base && p.base.label);
+      meta.textContent = txt(p.state) + ' \u00b7 ' + txt(p.user && p.user.login) + ' \u00b7 ' + txt(p.head && p.head.label) + ' \u2192 ' + txt(p.base && p.base.label);
       wrap.appendChild(meta);
 
       const meta2 = document.createElement('div');
       meta2.className = 'meta';
       const labels = (p.labels || []).map(l => txt(l && l.name)).filter(Boolean).join(', ') || '-';
       const reviewers = (p.requested_reviewers || []).map(r => txt(r && r.login)).filter(Boolean).join(', ') || '-';
-      meta2.textContent = 'labels: ' + labels + ' · reviewers: ' + reviewers;
+      meta2.textContent = 'labels: ' + labels + ' \u00b7 reviewers: ' + reviewers;
       wrap.appendChild(meta2);
 
       const actions = document.createElement('div');
+      actions.className = 'pr .actions'.replace('pr ', '');
       actions.className = 'actions';
 
       const diffBtn = document.createElement('button');
@@ -70,13 +215,13 @@
 
       const input = document.createElement('input');
       input.className = 'comment';
-      input.placeholder = 'comment…';
+      input.placeholder = 'coment\u00e1rio\u2026';
       input.id = 'c' + p.number;
       actions.appendChild(input);
 
       const commentBtn = document.createElement('button');
       commentBtn.className = 'secondary';
-      commentBtn.textContent = 'Comment';
+      commentBtn.textContent = 'Comentar';
       commentBtn.addEventListener('click', () => comment(p.number));
       actions.appendChild(commentBtn);
 
@@ -86,7 +231,7 @@
         a.href = txt(p.html_url);
         a.target = '_blank';
         a.rel = 'noopener noreferrer';
-        a.textContent = 'open in browser';
+        a.textContent = 'abrir no navegador';
         actions.appendChild(a);
       }
 
@@ -97,24 +242,35 @@
       const el = document.getElementById('list');
       const empty = document.getElementById('empty');
       el.textContent = '';
-      if (!prs || !prs.length) { empty.textContent = 'No PRs.'; return; }
-      empty.textContent = '';
+      if (!prs || !prs.length) { empty.textContent = 'Nenhum PR.'; empty.hidden = false; return; }
+      empty.hidden = true;
       const frag = document.createDocumentFragment();
       (Array.isArray(prs) ? prs : []).forEach(p => frag.appendChild(makePr(p)));
       el.appendChild(frag);
     }
+    function showError(m) {
+      const e = document.getElementById('error');
+      if (!e) return;
+      e.textContent = m ? ('Erro: ' + m) : '';
+      e.hidden = !m;
+    }
     function act(op, number) {
       if (!Number.isInteger(number)) return;
+      showError('');
       try { openidea.postMessage(JSON.stringify({ op: op, number: number })); } catch (e) {}
     }
     function comment(number) {
       if (!Number.isInteger(number)) return;
       const inp = document.getElementById('c' + number);
       const text = inp ? inp.value : '';
+      showError('');
       try { openidea.postMessage(JSON.stringify({ op: 'comment', number: number, text: String(text) })); } catch (e) {}
       if (inp) inp.value = '';
     }
     function refresh() {
+      showError('');
+      const empty = document.getElementById('empty');
+      if (empty) { empty.textContent = 'Carregando\u2026'; empty.hidden = false; }
       try { openidea.postMessage(JSON.stringify({ op: 'list', state: currentState })); } catch (e) {}
     }
     document.querySelectorAll('.filters button').forEach(b => {
@@ -134,8 +290,9 @@
           render(prs);
         }
         if (msg.op === 'error') {
+          showError(msg.message || 'erro desconhecido');
           const empty = document.getElementById('empty');
-          if (empty) empty.textContent = 'Error: ' + (msg.message || 'unknown');
+          if (empty) empty.hidden = true;
         }
       } catch (e) {}
     });
