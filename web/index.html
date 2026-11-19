@@ -9,32 +9,67 @@
   .pr { padding: 8px; border-bottom: 1px solid #333; }
   .pr .title { font-weight: 600; }
   .pr .meta { font-size: 12px; color: #999; }
-  button { background: #2d6cdf; color: #fff; border: 0; padding: 6px 10px; border-radius: 4px; cursor: pointer; margin-top: 8px; }
+  .pr .actions { margin-top: 6px; display: flex; gap: 6px; flex-wrap: wrap; }
+  button { background: #2d6cdf; color: #fff; border: 0; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 12px; }
+  button.secondary { background: #444; }
+  input.comment { background: #2a2a2a; color: #ddd; border: 1px solid #444; padding: 4px 6px; border-radius: 4px; font-size: 12px; width: 60%; }
   #empty { color: #999; font-style: italic; }
+  .filters { margin-bottom: 8px; display: flex; gap: 6px; }
+  .filters button { background: #444; }
+  .filters button.active { background: #2d6cdf; }
 </style>
 </head>
 <body>
   <h2>Open Pull Requests</h2>
+  <div class="filters">
+    <button data-state="open" class="active">Open</button>
+    <button data-state="closed">Closed</button>
+    <button data-state="all">All</button>
+  </div>
   <div id="list"></div>
   <div id="empty">Loading…</div>
-  <button id="refresh">Refresh</button>
+  <button id="refresh" class="secondary">Refresh</button>
   <script>
+    let currentState = 'open';
     function render(prs) {
       const el = document.getElementById('list');
       const empty = document.getElementById('empty');
-      if (!prs || !prs.length) { el.innerHTML = ''; empty.textContent = 'No open PRs.'; return; }
+      if (!prs || !prs.length) { el.innerHTML = ''; empty.textContent = 'No PRs.'; return; }
       empty.textContent = '';
       el.innerHTML = prs.map(p =>
         `<div class="pr">
           <div class="title">#${p.number} ${escape(p.title)}</div>
           <div class="meta">${p.state} · ${p.user.login} · ${p.head.label} → ${p.base.label}</div>
-          <a href="${p.html_url}" target="_blank" style="color:#6ea8fe;font-size:12px;">open in browser</a>
+          <div class="meta">labels: ${(p.labels||[]).map(l=>l.name).join(', ') || '-'} · reviewers: ${(p.requested_reviewers||[]).map(r=>r.login).join(', ') || '-'}</div>
+          <div class="actions">
+            <button onclick="act('diff',${p.number})">Diff</button>
+            <button onclick="act('merge',${p.number})" class="secondary">Merge</button>
+            <input class="comment" id="c${p.number}" placeholder="comment…" />
+            <button onclick="comment(${p.number})" class="secondary">Comment</button>
+          </div>
         </div>`).join('');
     }
     function escape(s){ return String(s).replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
-    function refresh() {
-      try { openidea.postMessage(JSON.stringify({ op: 'refresh' })); } catch (e) {}
+    function act(op, number) {
+      try { openidea.postMessage(JSON.stringify({ op, number })); } catch (e) {}
     }
+    function comment(number) {
+      const inp = document.getElementById('c'+number);
+      const text = inp ? inp.value : '';
+      try { openidea.postMessage(JSON.stringify({ op: 'comment', number, text })); } catch (e) {}
+      if (inp) inp.value = '';
+    }
+    function refresh() {
+      try { openidea.postMessage(JSON.stringify({ op: 'list', state: currentState })); } catch (e) {}
+    }
+    document.querySelectorAll('.filters button').forEach(b => {
+      b.addEventListener('click', () => {
+        document.querySelectorAll('.filters button').forEach(x=>x.classList.remove('active'));
+        b.classList.add('active');
+        currentState = b.dataset.state;
+        refresh();
+      });
+    });
     openidea.onMessage((raw) => {
       try {
         const msg = JSON.parse(raw);

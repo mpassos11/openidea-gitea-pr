@@ -13,7 +13,7 @@ struct Config {
     default_branch: Option<String>,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Default)]
 struct PrSummary {
     number: u64,
     title: String,
@@ -22,12 +22,19 @@ struct PrSummary {
     head: RefInfo,
     base: RefInfo,
     html_url: String,
+    #[serde(default)]
+    labels: Vec<Label>,
+    #[serde(default)]
+    requested_reviewers: Vec<Login>,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Default, Clone)]
+struct Label { name: String }
+
+#[derive(Serialize, Deserialize, Default)]
 struct Login { login: String }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Default)]
 struct RefInfo { label: String }
 
 impl GiteaPr {
@@ -102,9 +109,21 @@ impl Plugin for GiteaPr {
     fn run_command(&mut self, id: &str, ctx: &Invocation, arg: Option<&str>) -> Result<Option<String>, Error> {
         match id {
             "gitea-pr.configure" => {
-                let cfg: Config = serde_json::from_str(arg.unwrap_or("{}"))
+                // Settings UI takes precedence; fall back to JSON arg for backward compat.
+                let v: serde_json::Value = if let Some(bu) = host::setting("baseUrl") {
+                    serde_json::json!({
+                        "base_url": bu,
+                        "owner": host::setting("owner").unwrap_or_default(),
+                        "repo": host::setting("repo").unwrap_or_default(),
+                        "default_branch": host::setting("defaultBranch"),
+                        "token": serde_json::from_str::<serde_json::Value>(arg.unwrap_or("{}")).ok()
+                            .and_then(|x| x.get("token").and_then(|t| t.as_str()).map(String::from)),
+                    })
+                } else {
+                    serde_json::from_str(arg.unwrap_or("{}")).unwrap_or_default()
+                };
+                let cfg: Config = serde_json::from_value(v.clone())
                     .map_err(|e| Error::Failed(e.to_string()))?;
-                // Security validation (same as load_config).
                 if cfg.base_url.trim().is_empty() || cfg.owner.trim().is_empty() || cfg.repo.trim().is_empty() {
                     return Err(Error::Failed("invalid config: empty field".into()));
                 }
@@ -115,33 +134,34 @@ impl Plugin for GiteaPr {
                     return Err(Error::Failed("invalid config: base_url must be http(s)".into()));
                 }
                 host::storage::set("config", &serde_json::to_string(&cfg).map_err(|e| Error::Failed(e.to_string()))?)?;
-                // token is set by the user via secrets UI; store if provided in arg.
-                if let Some(t) = serde_json::from_str::<serde_json::Value>(arg.unwrap_or("{}")).ok()
-                    .and_then(|v| v.get("token").and_then(|x| x.as_str()).map(String::from)) {
-                    host::secret_set("gitea_token", &t)?;
+                if let Some(t) = v.get("token").and_then(|x| x.as_str()) {
+                    host::secret_set("gitea_token", t)?;
                 }
                 host::notify(NotificationLevel::Info, "Gitea PR", "Configuration saved.");
                 Ok(None)
             }
             "gitea-pr.list" => {
                 let cfg = self.load_config()?;
-                // Optional pagination via arg JSON: {"page":2,"limit":20}
-                let (page, limit) = if let Some(a) = arg {
-                    let v: serde_json::Value = serde_json::from_str(a).unwrap_or_default();
-                    (v.get("page").and_then(|x| x.as_u64()).unwrap_or(1),
-                     v.get("limit").and_then(|x| x.as_u64()).unwrap_or(30).min(100))
-                } else { (1u64, 30u64) };
-                let url = self.api(&cfg, &format!("pulls?state=open&page={}&limit={}", page, limit));
+                let v: serde_json::Value = serde_json::from_str(arg.unwrap_or("{}")).unwrap_or_default();
+                let page = v.get("page").and_then(|x| x.as_u64()).unwrap_or(1);
+                let limit = v.get("limit").and_then(|x| x.as_u64()).unwrap_or(30).min(100);
+                let state = v.get("state").and_then(|x| x.as_str()).unwrap_or("open");
+                let url = self.api(&cfg, &format!("pulls?state={}&page={}&limit={}", state, page, limit));
                 let body = self.get(&url)?;
                 let prs: Vec<PrSummary> = serde_json::from_str(&body)
                     .map_err(|e| Error::Failed(e.to_string()))?;
                 let msg = prs.iter()
-                    .map(|p| format!("#{} {} ({}) {} -> {}", p.number, p.title, p.state, p.head.label, p.base.label))
+                    .map(|p| {
+                        let labels = p.labels.iter().map(|l| l.name.clone()).collect::<Vec<_>>().join(",");
+                        let reviewers = p.requested_reviewers.iter().map(|r| r.login.clone()).collect::<Vec<_>>().join(",");
+                        format!("#{} {} ({}) {} -> {} [{}] reviewers:{}", p.number, p.title, p.state, p.head.label, p.base.label, labels, reviewers)
+                    })
                     .collect::<Vec<_>>()
                     .join("\n");
-                host::notify(NotificationLevel::Info, "Gitea PRs", if msg.is_empty() { "No open PRs." } else { &msg });
+                host::notify(NotificationLevel::Info, "Gitea PRs", if msg.is_empty() { "No PRs." } else { &msg });
                 host::storage::set("prs", &body)?;
                 host::storage::set("page", &page.to_string())?;
+                host::storage::set("state", state)?;
                 Ok(None)
             }
             "gitea-pr.create" => {
@@ -196,8 +216,14 @@ impl Plugin for GiteaPr {
                 };
                 let resp = host::fetch(&req)?;
                 let diff = String::from_utf8(resp.body).map_err(|e| Error::Failed(e.to_string()))?;
-                host::output_append("Gitea PR", &diff)?;
-                host::output_reveal("Gitea PR")?;
+                let cd = openidea_plugin::ContentDiff {
+                    left: String::new(),
+                    right: diff,
+                    left_label: Some(format!("base (PR #{})", number)),
+                    right_label: Some(format!("head (PR #{})", number)),
+                    title: Some(format!("PR #{} diff", number)),
+                };
+                host::open_diff(&cd, Some(&format!("pr-{}.diff", number)))?;
                 Ok(None)
             }
             _ => Err(Error::NotFound(format!("command {id}"))),
@@ -226,9 +252,28 @@ impl openidea_plugin::views::Views for GiteaPr {
                 let op = v.get("op").and_then(|x| x.as_str()).unwrap_or("");
                 match op {
                     "refresh" | "list" => {
+                        if let Some(st) = v.get("state").and_then(|x| x.as_str()) {
+                            let arg = serde_json::json!({"state": st, "page": v.get("page").cloned().unwrap_or(serde_json::json!(1))}).to_string();
+                            let _ = self.run_command("gitea-pr.list", _ctx, Some(&arg));
+                        }
                         let data = host::storage::get("prs").unwrap_or(None).unwrap_or_else(|| "[]".into());
                         let reply = serde_json::json!({"op":"prs","data": data}).to_string();
                         host::post_view_message(VIEW, &reply)?;
+                    }
+                    "diff" => {
+                        if let Some(n) = v.get("number").and_then(|x| x.as_u64()) {
+                            let _ = self.run_command("gitea-pr.diff", _ctx, Some(&n.to_string()));
+                        }
+                    }
+                    "merge" => {
+                        if let Some(n) = v.get("number").and_then(|x| x.as_u64()) {
+                            let _ = self.run_command("gitea-pr.merge", _ctx, Some(&n.to_string()));
+                        }
+                    }
+                    "comment" => {
+                        let n = v.get("number").and_then(|x| x.as_u64()).unwrap_or(0);
+                        let text = v.get("text").and_then(|x| x.as_str()).unwrap_or("");
+                        let _ = self.run_command("gitea-pr.comment", _ctx, Some(&format!("{}:{}", n, text)));
                     }
                     _ => {}
                 }
@@ -292,5 +337,38 @@ mod tests {
         let host = MockHost::install().with_capabilities(&["storage"]);
         let mut p = GiteaPr::default();
         assert!(p.run_command("gitea-pr.nope", &host.invocation(), None).is_err());
+    }
+
+    #[test]
+    fn list_with_mock_fetch() {
+        let host = MockHost::install().with_capabilities(&["storage", "secrets", "net:gitea.example.com"]);
+        host.declare_secret("gitea_token");
+        host.set_secret("gitea_token", "tok");
+        let mut p = GiteaPr::default();
+        let arg = r#"{"base_url":"https://gitea.example.com/api/v1","owner":"org","repo":"repo"}"#;
+        p.run_command("gitea-pr.configure", &host.invocation(), Some(arg)).unwrap();
+        host.on_fetch(|_r| Ok(openidea_plugin::HttpResponse { status: 200, headers: vec![], body: b"[{\"number\":1,\"title\":\"T\",\"state\":\"open\",\"user\":{\"login\":\"u\"},\"head\":{\"label\":\"h\"},\"base\":{\"label\":\"b\"},\"html_url\":\"u\"}]".to_vec() }));
+        p.run_command("gitea-pr.list", &host.invocation(), Some(r#"{"state":"open"}"#)).unwrap();
+        let stored = host.storage().get("prs").cloned().unwrap();
+        assert!(stored.contains("\"number\":1"));
+    }
+
+    #[test]
+    fn comment_requires_config() {
+        let host = MockHost::install().with_capabilities(&["storage", "secrets"]);
+        let mut p = GiteaPr::default();
+        assert!(p.run_command("gitea-pr.comment", &host.invocation(), Some("1:hi")).is_err());
+    }
+
+    #[test]
+    fn merge_with_mock() {
+        let host = MockHost::install().with_capabilities(&["storage", "secrets", "net:gitea.example.com"]);
+        host.declare_secret("gitea_token");
+        host.set_secret("gitea_token", "tok");
+        let mut p = GiteaPr::default();
+        let arg = r#"{"base_url":"https://gitea.example.com/api/v1","owner":"org","repo":"repo"}"#;
+        p.run_command("gitea-pr.configure", &host.invocation(), Some(arg)).unwrap();
+        host.on_fetch(|_r| Ok(openidea_plugin::HttpResponse { status: 200, headers: vec![], body: b"{}".to_vec() }));
+        p.run_command("gitea-pr.merge", &host.invocation(), Some("5")).unwrap();
     }
 }
