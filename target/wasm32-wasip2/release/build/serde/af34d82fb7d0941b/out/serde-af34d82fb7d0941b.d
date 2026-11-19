@@ -1,0 +1,14 @@
+C:\wamp\www\openidea-gitea-pr\target\wasm32-wasip2\release\build\serde/af34d82fb7d0941b\out\serde-af34d82fb7d0941b.d: C:\Users\Matheus\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.229\src\lib.rs C:\Users\Matheus\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.229\src\integer128.rs C:\Users\Matheus\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.229\src\private\mod.rs C:\Users\Matheus\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.229\src\private\de.rs C:\Users\Matheus\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.229\src\private\ser.rs C:\wamp\www\openidea-gitea-pr\target\wasm32-wasip2\release\build\serde/f71dd58f8142239d\out/private.rs
+
+C:\wamp\www\openidea-gitea-pr\target\wasm32-wasip2\release\build\serde/af34d82fb7d0941b\out\libserde-af34d82fb7d0941b.rlib: C:\Users\Matheus\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.229\src\lib.rs C:\Users\Matheus\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.229\src\integer128.rs C:\Users\Matheus\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.229\src\private\mod.rs C:\Users\Matheus\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.229\src\private\de.rs C:\Users\Matheus\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.229\src\private\ser.rs C:\wamp\www\openidea-gitea-pr\target\wasm32-wasip2\release\build\serde/f71dd58f8142239d\out/private.rs
+
+C:\wamp\www\openidea-gitea-pr\target\wasm32-wasip2\release\build\serde/af34d82fb7d0941b\out\libserde-af34d82fb7d0941b.rmeta: C:\Users\Matheus\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.229\src\lib.rs C:\Users\Matheus\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.229\src\integer128.rs C:\Users\Matheus\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.229\src\private\mod.rs C:\Users\Matheus\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.229\src\private\de.rs C:\Users\Matheus\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.229\src\private\ser.rs C:\wamp\www\openidea-gitea-pr\target\wasm32-wasip2\release\build\serde/f71dd58f8142239d\out/private.rs
+
+C:\Users\Matheus\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.229\src\lib.rs:
+C:\Users\Matheus\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.229\src\integer128.rs:
+C:\Users\Matheus\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.229\src\private\mod.rs:
+C:\Users\Matheus\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.229\src\private\de.rs:
+C:\Users\Matheus\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.229\src\private\ser.rs:
+C:\wamp\www\openidea-gitea-pr\target\wasm32-wasip2\release\build\serde/f71dd58f8142239d\out/private.rs:
+
+# env-dep:OUT_DIR=C:\\wamp\\www\\openidea-gitea-pr\\target\\wasm32-wasip2\\release\\build\\serde/f71dd58f8142239d\\out

@@ -1,0 +1,69 @@
+id = "matheus.gitea-pr"
+name = "Gitea Pull Requests"
+version = "0.1.0"
+description = "Open, review, comment and merge pull requests on a Gitea server from OpenIDEA."
+authors = ["Matheus"]
+license = "MIT"
+categories = ["vcs", "tools"]
+icon = "icon.svg"
+engines.openidea = "^1.5"
+wasm = "dist/plugin.wasm"
+activation = ["on-command:gitea-pr.list", "on-view:gitea-pr.panel"]
+
+[capabilities]
+required = ["project.read", "vcs.read", "storage", "secrets", "net:ask"]
+optional = ["vcs.write", "editor.read"]
+
+[[contributes.commands]]
+id = "gitea-pr.list"
+title = "Gitea PR: List Pull Requests"
+category = "Gitea PR"
+
+[[contributes.commands]]
+id = "gitea-pr.create"
+title = "Gitea PR: Create Pull Request"
+category = "Gitea PR"
+when = "editorFocus"
+
+[[contributes.commands]]
+id = "gitea-pr.review"
+title = "Gitea PR: Review Pull Request"
+category = "Gitea PR"
+
+[[contributes.commands]]
+id = "gitea-pr.merge"
+title = "Gitea PR: Merge Pull Request"
+category = "Gitea PR"
+
+[[contributes.commands]]
+id = "gitea-pr.comment"
+title = "Gitea PR: Comment on Pull Request"
+category = "Gitea PR"
+
+[[contributes.commands]]
+id = "gitea-pr.diff"
+title = "Gitea PR: Open PR Diff"
+category = "Gitea PR"
+
+[[contributes.commands]]
+id = "gitea-pr.configure"
+title = "Gitea PR: Configure Server"
+category = "Gitea PR"
+
+[[contributes.menus]]
+menu = "tools"
+command = "gitea-pr.list"
+
+[[contributes.menus]]
+menu = "tools"
+command = "gitea-pr.configure"
+
+[[contributes.views]]
+id = "gitea-pr.panel"
+title = "Gitea Pull Requests"
+location = "right"
+web = "web/index.html"
+
+[[contributes.settings]]
+schema = "settings.json"
+title = "Gitea Pull Requests"

@@ -1,0 +1,2 @@
+cargo:rustc-link-lib=static=wit_bindgen_cabi_wasip3_0_63_0
+cargo:rustc-link-search=native=C:\wamp\www\openidea-gitea-pr\target\wasm32-wasip2\release\build\wit-bindgen/6ddf786f532390d9\out

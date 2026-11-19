@@ -1,0 +1,50 @@
+{
+  "format": 1,
+  "publishers": [
+    {
+      "id": "matheus",
+      "name": "Matheus",
+      "keys": [
+        {
+          "key": "E9Gwsm6Zk6eQ3Bfw/YcPHBFV4WyVVopbE2Px5F/IMbo=",
+          "revoked": false
+        }
+      ]
+    }
+  ],
+  "plugins": [
+    {
+      "id": "matheus.gitea-pr",
+      "name": "Gitea Pull Requests",
+      "version": "0.1.0",
+      "description": "Open, review, comment and merge pull requests on a Gitea server from OpenIDEA.",
+      "authors": [
+        "Matheus"
+      ],
+      "publisher": "matheus",
+      "download": "matheus.gitea-pr-0.1.0.oiplugin",
+      "digest": "297ae3858b827f63aa999f47425f17d15e4acef807914057c801faf2ace7d0f8",
+      "capabilities": [
+        "project.read",
+        "vcs.read",
+        "storage",
+        "secrets",
+        "net:ask",
+        "vcs.write",
+        "editor.read"
+      ],
+      "engine": "^1.5, ^1.13",
+      "categories": [
+        "vcs",
+        "tools"
+      ],
+      "icon": null,
+      "homepage": null,
+      "notes": null,
+      "downloads": null,
+      "featured": false,
+      "suggest": []
+    }
+  ],
+  "revoked": []
+}
