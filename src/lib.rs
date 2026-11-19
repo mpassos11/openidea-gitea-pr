@@ -110,12 +110,12 @@ impl Plugin for GiteaPr {
         match id {
             "gitea-pr.configure" => {
                 // Settings UI takes precedence; fall back to JSON arg for backward compat.
-                let v: serde_json::Value = if let Some(bu) = host::setting("baseUrl") {
+                let v: serde_json::Value = if let Some(bu) = host::setting_string("baseUrl") {
                     serde_json::json!({
                         "base_url": bu,
-                        "owner": host::setting("owner").unwrap_or_default(),
-                        "repo": host::setting("repo").unwrap_or_default(),
-                        "default_branch": host::setting("defaultBranch"),
+                        "owner": host::setting_string("owner").unwrap_or_default(),
+                        "repo": host::setting_string("repo").unwrap_or_default(),
+                        "default_branch": host::setting_string("defaultBranch"),
                         "token": serde_json::from_str::<serde_json::Value>(arg.unwrap_or("{}")).ok()
                             .and_then(|x| x.get("token").and_then(|t| t.as_str()).map(String::from)),
                     })
@@ -308,6 +308,21 @@ mod tests {
         p.run_command("gitea-pr.configure", &host.invocation(), Some(arg)).unwrap();
         let raw = host.storage().get("config").cloned().unwrap();
         assert!(raw.contains("\"owner\":\"org\""));
+    }
+
+    #[test]
+    fn configure_from_settings() {
+        let host = MockHost::install().with_capabilities(&["storage", "secrets"]);
+        host.declare_secret("gitea_token");
+        host.set_setting("baseUrl", "\"https://gitea.example.com/api/v1\"");
+        host.set_setting("owner", "\"org\"");
+        host.set_setting("repo", "\"repo\"");
+        host.set_setting("defaultBranch", "\"main\"");
+        let mut p = GiteaPr::default();
+        p.run_command("gitea-pr.configure", &host.invocation(), None).unwrap();
+        let raw = host.storage().get("config").cloned().unwrap();
+        assert!(raw.contains("\"owner\":\"org\""));
+        assert!(raw.contains("\"base_url\":\"https://gitea.example.com/api/v1\""));
     }
 
     #[test]
