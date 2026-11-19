@@ -1,6 +1,6 @@
 id = "matheus.gitea-pr"
 name = "Gitea Pull Requests"
-version = "0.1.0"
+version = "0.1.1"
 description = "Open, review, comment and merge pull requests on a Gitea server from OpenIDEA."
 authors = ["Matheus"]
 license = "MIT"
@@ -67,3 +67,8 @@ web = "web/index.html"
 [[contributes.settings]]
 schema = "settings.json"
 title = "Gitea Pull Requests"
+
+[[contributes.secrets]]
+name = "gitea_token"
+label = "Gitea access token"
+description = "Personal access token used to authenticate against the Gitea API"

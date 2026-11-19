@@ -115,10 +115,10 @@ impl Plugin for GiteaPr {
                     return Err(Error::Failed("invalid config: base_url must be http(s)".into()));
                 }
                 host::storage::set("config", &serde_json::to_string(&cfg).map_err(|e| Error::Failed(e.to_string()))?)?;
-                // token is set by the user via secrets UI; store if provided in arg (best-effort).
+                // token is set by the user via secrets UI; store if provided in arg.
                 if let Some(t) = serde_json::from_str::<serde_json::Value>(arg.unwrap_or("{}")).ok()
                     .and_then(|v| v.get("token").and_then(|x| x.as_str()).map(String::from)) {
-                    let _ = host::secret_set("gitea_token", &t);
+                    host::secret_set("gitea_token", &t)?;
                 }
                 host::notify(NotificationLevel::Info, "Gitea PR", "Configuration saved.");
                 Ok(None)
@@ -170,7 +170,7 @@ impl Plugin for GiteaPr {
                 let cfg = self.load_config()?;
                 let (num, text) = arg.unwrap_or("").split_once(':').unwrap_or(("0", ""));
                 let number: u64 = num.parse().map_err(|_| Error::Failed("arg format: <number>:<comment>".into()))?;
-                let url = self.api(&cfg, &format!("pulls/{}/comments", number));
+                let url = self.api(&cfg, &format!("issues/{}/comments", number));
                 let body = serde_json::json!({ "body": text }).to_string();
                 let _ = self.post(&url, &body)?;
                 host::notify(NotificationLevel::Info, "Gitea PR", "Comment posted.");
@@ -205,7 +205,41 @@ impl Plugin for GiteaPr {
     }
 }
 
-register_plugin!(GiteaPr);
+const VIEW: &str = "gitea-pr.panel";
+
+impl openidea_plugin::views::Views for GiteaPr {
+    fn render(&mut self, view: &str, _viewport: Option<openidea_plugin::views::Viewport>, _ctx: &Invocation) -> Result<openidea_plugin::views::View, Error> {
+        if view != VIEW {
+            return Err(Error::NotFound(view.into()));
+        }
+        // Web body is served from the package's web/index.html (declared in plugin.toml).
+        Ok(openidea_plugin::views::View::new(openidea_plugin::views::Body::Message("".into())))
+    }
+
+    fn handle(&mut self, view: &str, event: openidea_plugin::views::ViewEvent, _ctx: &Invocation) -> Result<(), Error> {
+        if view != VIEW {
+            return Err(Error::NotFound(view.into()));
+        }
+        match event {
+            openidea_plugin::views::ViewEvent::Message(msg) => {
+                let v: serde_json::Value = serde_json::from_str(&msg).unwrap_or_default();
+                let op = v.get("op").and_then(|x| x.as_str()).unwrap_or("");
+                match op {
+                    "refresh" | "list" => {
+                        let data = host::storage::get("prs").unwrap_or(None).unwrap_or_else(|| "[]".into());
+                        let reply = serde_json::json!({"op":"prs","data": data}).to_string();
+                        host::post_view_message(VIEW, &reply)?;
+                    }
+                    _ => {}
+                }
+                Ok(())
+            }
+            _ => Ok(()),
+        }
+    }
+}
+
+register_plugin!(GiteaPr, views);
 
 #[cfg(test)]
 mod tests {
@@ -223,6 +257,7 @@ mod tests {
     #[test]
     fn configure_saves_config() {
         let host = MockHost::install().with_capabilities(&["storage", "secrets"]);
+        host.declare_secret("gitea_token");
         let mut p = GiteaPr::default();
         let arg = r#"{"base_url":"https://gitea.example.com/api/v1","owner":"org","repo":"repo","token":"abc"}"#;
         p.run_command("gitea-pr.configure", &host.invocation(), Some(arg)).unwrap();

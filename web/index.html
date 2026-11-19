@@ -32,14 +32,19 @@
         </div>`).join('');
     }
     function escape(s){ return String(s).replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
-    async function refresh() {
-      // The plugin stores the last fetched list in storage key "prs".
-      // Web views read it through the OpenIDEA bridge when available.
-      try {
-        const r = await (window.openidea && window.openidea.storage ? window.openidea.storage.get('prs') : null);
-        if (r) render(JSON.parse(r));
-      } catch (e) { document.getElementById('empty').textContent = 'Error: ' + e; }
+    function refresh() {
+      try { openidea.postMessage(JSON.stringify({ op: 'refresh' })); } catch (e) {}
     }
+    openidea.onMessage((raw) => {
+      try {
+        const msg = JSON.parse(raw);
+        if (msg.op === 'prs') {
+          let prs = [];
+          try { prs = JSON.parse(msg.data); } catch (e) { prs = []; }
+          render(prs);
+        }
+      } catch (e) {}
+    });
     document.getElementById('refresh').addEventListener('click', refresh);
     refresh();
   </script>
