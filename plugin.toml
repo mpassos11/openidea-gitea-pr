@@ -1,6 +1,6 @@
 id = "matheus.gitea-pr"
 name = "Gitea Pull Requests"
-version = "0.1.7"
+version = "0.2.0"
 description = "Open, review, comment and merge pull requests on a Gitea server from OpenIDEA."
 authors = ["Matheus"]
 license = "MIT"
@@ -43,6 +43,21 @@ category = "Gitea PR"
 [[contributes.commands]]
 id = "gitea-pr.diff"
 title = "Gitea PR: Open PR Diff"
+category = "Gitea PR"
+
+[[contributes.commands]]
+id = "gitea-pr.close"
+title = "Gitea PR: Close Pull Request"
+category = "Gitea PR"
+
+[[contributes.commands]]
+id = "gitea-pr.reopen"
+title = "Gitea PR: Reopen Pull Request"
+category = "Gitea PR"
+
+[[contributes.commands]]
+id = "gitea-pr.edit"
+title = "Gitea PR: Edit Pull Request"
 category = "Gitea PR"
 
 [[contributes.commands]]

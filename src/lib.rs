@@ -175,6 +175,95 @@ impl Plugin for GiteaPr {
                 host::storage::set("state", state)?;
                 Ok(None)
             }
+            "gitea-pr.close" | "gitea-pr.reopen" => {
+                let cfg = self.load_config()?;
+                let number: u64 = arg.unwrap_or("").parse().map_err(|_| Error::Failed("pass PR number".into()))?;
+                let state = if id == "gitea-pr.close" { "closed" } else { "open" };
+                let url = self.api(&cfg, &format!("pulls/{}", number));
+                // Gitea uses PATCH for state change
+                let req = HttpRequest {
+                    method: "PATCH".into(),
+                    url: url.clone(),
+                    headers: vec![
+                        ("Authorization".into(), format!("token {}", self.token()?)),
+                        ("Content-Type".into(), "application/json".into()),
+                    ],
+                    body: Some(format!(r#"{{"state":"{}"}}"#, state).into_bytes()),
+                    timeout_ms: Some(30000),
+                };
+                let resp = host::fetch(&req)?;
+                if resp.status < 200 || resp.status >= 300 {
+                    let b = String::from_utf8_lossy(&resp.body);
+                    return Err(Error::Failed(format!("HTTP {} {}", resp.status, b)));
+                }
+                host::notify(NotificationLevel::Info, "Gitea PR", &format!("PR #{} {}", number, state));
+                Ok(None)
+            }
+            "gitea-pr.edit" => {
+                let cfg = self.load_config()?;
+                let v: serde_json::Value = serde_json::from_str(arg.unwrap_or("{}")).map_err(|e| Error::Failed(e.to_string()))?;
+                let number = v.get("number").and_then(|x| x.as_u64()).ok_or_else(|| Error::Failed("number required".into()))?;
+                let mut body = serde_json::Map::new();
+                if let Some(t) = v.get("title").and_then(|x| x.as_str()) { body.insert("title".into(), serde_json::json!(t)); }
+                if let Some(b) = v.get("body").and_then(|x| x.as_str()) { body.insert("body".into(), serde_json::json!(b)); }
+                let url = self.api(&cfg, &format!("pulls/{}", number));
+                let req = HttpRequest {
+                    method: "PATCH".into(),
+                    url: url.clone(),
+                    headers: vec![
+                        ("Authorization".into(), format!("token {}", self.token()?)),
+                        ("Content-Type".into(), "application/json".into()),
+                    ],
+                    body: Some(serde_json::Value::Object(body).to_string().into_bytes()),
+                    timeout_ms: Some(30000),
+                };
+                let resp = host::fetch(&req)?;
+                if resp.status < 200 || resp.status >= 300 {
+                    let b = String::from_utf8_lossy(&resp.body);
+                    return Err(Error::Failed(format!("HTTP {} {}", resp.status, b)));
+                }
+                host::notify(NotificationLevel::Info, "Gitea PR", &format!("Updated PR #{}", number));
+                Ok(None)
+            }
+            "gitea-pr.request-reviewers" => {
+                let cfg = self.load_config()?;
+                let v: serde_json::Value = serde_json::from_str(arg.unwrap_or("{}")).map_err(|e| Error::Failed(e.to_string()))?;
+                let number = v.get("number").and_then(|x| x.as_u64()).ok_or_else(|| Error::Failed("number required".into()))?;
+                let reviewers = v.get("reviewers").cloned().unwrap_or(serde_json::json!([]));
+                let url = self.api(&cfg, &format!("pulls/{}/requested_reviewers", number));
+                let body = serde_json::json!({ "reviewers": reviewers }).to_string();
+                let _ = self.post(&url, &body)?;
+                host::notify(NotificationLevel::Info, "Gitea PR", &format!("Reviewers requested for #{}", number));
+                Ok(None)
+            }
+            "gitea-pr.review" => {
+                // now accepts JSON: {"number":n,"event":"APPROVE|REQUEST_CHANGES|COMMENT","body":"..."}
+                let v: serde_json::Value = serde_json::from_str(arg.unwrap_or("{}")).unwrap_or_default();
+                if let Some(n) = v.get("number").and_then(|x| x.as_u64()) {
+                    let cfg = self.load_config()?;
+                    let event = v.get("event").and_then(|x| x.as_str()).unwrap_or("COMMENT");
+                    let bodytxt = v.get("body").and_then(|x| x.as_str()).unwrap_or("");
+                    let url = self.api(&cfg, &format!("pulls/{}/reviews", n));
+                    let body = serde_json::json!({ "event": event, "body": bodytxt }).to_string();
+                    let _ = self.post(&url, &body)?;
+                    host::notify(NotificationLevel::Info, "Gitea PR", &format!("Review submitted for #{}", n));
+                    return Ok(None);
+                }
+                self.run_command("gitea-pr.list", ctx, None)?;
+                host::notify(NotificationLevel::Info, "Gitea PR", "Open the Gitea Pull Requests panel to review.");
+                Ok(None)
+            }
+            "gitea-pr.statuses" => {
+                let cfg = self.load_config()?;
+                let v: serde_json::Value = serde_json::from_str(arg.unwrap_or("{}")).map_err(|e| Error::Failed(e.to_string()))?;
+                let sha = v.get("sha").and_then(|x| x.as_str()).unwrap_or("");
+                let url = format!("{}/repos/{}/{}/commits/{}/statuses", cfg.base_url.trim_end_matches('/'), cfg.owner, cfg.repo, sha);
+                let body = self.get(&url)?;
+                host::storage::set(&format!("statuses:{}", sha), &body)?;
+                let reply = serde_json::json!({"op":"statuses","sha":sha,"data":body}).to_string();
+                let _ = host::post_view_message(VIEW, &reply);
+                Ok(None)
+            }
             "gitea-pr.create" => {
                 let cfg = self.load_config()?;
                 let payload: serde_json::Value = serde_json::from_str(arg.unwrap_or("{}"))
@@ -305,13 +394,42 @@ impl openidea_plugin::views::Views for GiteaPr {
                     }
                     "merge" => {
                         if let Some(n) = v.get("number").and_then(|x| x.as_u64()) {
-                            let _ = self.run_command("gitea-pr.merge", _ctx, Some(&n.to_string()));
+                            let method = v.get("method").and_then(|x| x.as_str()).unwrap_or("merge");
+                            let _ = self.run_command("gitea-pr.merge", _ctx, Some(&format!("{}:{}", n, method)));
                         }
+                    }
+                    "close" => {
+                        if let Some(n) = v.get("number").and_then(|x| x.as_u64()) {
+                            let _ = self.run_command("gitea-pr.close", _ctx, Some(&n.to_string()));
+                        }
+                    }
+                    "reopen" => {
+                        if let Some(n) = v.get("number").and_then(|x| x.as_u64()) {
+                            let _ = self.run_command("gitea-pr.reopen", _ctx, Some(&n.to_string()));
+                        }
+                    }
+                    "edit" => {
+                        let _ = self.run_command("gitea-pr.edit", _ctx, Some(&v.to_string()));
+                    }
+                    "request-reviewers" => {
+                        let _ = self.run_command("gitea-pr.request-reviewers", _ctx, Some(&v.to_string()));
+                    }
+                    "review" => {
+                        let _ = self.run_command("gitea-pr.review", _ctx, Some(&v.to_string()));
+                    }
+                    "create" => {
+                        let _ = self.run_command("gitea-pr.create", _ctx, Some(&v.to_string()));
                     }
                     "comment" => {
                         let n = v.get("number").and_then(|x| x.as_u64()).unwrap_or(0);
                         let text = v.get("text").and_then(|x| x.as_str()).unwrap_or("");
                         let _ = self.run_command("gitea-pr.comment", _ctx, Some(&format!("{}:{}", n, text)));
+                    }
+                    "statuses" => {
+                        if let Some(sha) = v.get("sha").and_then(|x| x.as_str()) {
+                            let arg = serde_json::json!({"sha": sha}).to_string();
+                            let _ = self.run_command("gitea-pr.statuses", _ctx, Some(&arg));
+                        }
                     }
                     _ => {}
                 }
