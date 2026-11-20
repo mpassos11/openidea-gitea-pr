@@ -124,12 +124,14 @@
       ['APPROVE','REQUEST_CHANGES','COMMENT'].forEach(e => { const o = document.createElement('option'); o.value = e; o.textContent = e; reviewSel.appendChild(o); });
       actions.appendChild(reviewSel);
       const reviewBtn = btn('Review', 'secondary', () => {
-        const body = prompt('Coment\u00e1rio (opcional):') || '';
-        act('review', p.number, reviewSel.value, body);
+        const r = prompt('Coment\u00e1rio (opcional):');
+        if (r === null) return;
+        act('review', p.number, reviewSel.value, r);
       });
       actions.appendChild(reviewBtn);
       actions.appendChild(btn('Reviewers', 'secondary', () => {
-        const r = prompt('Reviewers (login, separados por v\u00edrgula):') || '';
+        const r = prompt('Reviewers (login, separados por v\u00edrgula):');
+        if (r === null) return;
         const list = r.split(',').map(x=>x.trim()).filter(Boolean);
         act('request-reviewers', p.number, list);
       }));
@@ -190,11 +192,11 @@
       try { openidea.postMessage(JSON.stringify(payload)); } catch (e) {}
     }
     function editPr(p) {
-      const title = prompt('Novo t\u00edtulo:', txt(p.title)) || txt(p.title);
-      const body = prompt('Novo body:', txt(p.body)) || txt(p.body);
-      act('edit', p.number, null, null);
-      // send edit via separate message
-      try { openidea.postMessage(JSON.stringify({ op: 'edit', number: p.number, title: title, body: body })); } catch (e) {}
+      const t = prompt('Novo t\u00edtulo:', txt(p.title));
+      if (t === null) return;
+      const b = prompt('Novo body:', txt(p.body));
+      if (b === null) return;
+      try { openidea.postMessage(JSON.stringify({ op: 'edit', number: p.number, title: t, body: b })); } catch (e) {}
     }
     function refresh() {
       showError('');
@@ -213,8 +215,9 @@
     document.getElementById('filterAuthor').addEventListener('input', () => render(allPrs));
     document.getElementById('filterLabel').addEventListener('input', () => render(allPrs));
     document.getElementById('create').addEventListener('click', () => {
-      const title = prompt('T\u00edtulo do PR (vazio = \u00faltimo commit):') || '';
-      try { openidea.postMessage(JSON.stringify({ op: 'create', title: title })); } catch (e) {}
+      const r = prompt('T\u00edtulo do PR (vazio = \u00faltimo commit):');
+      if (r === null) return;
+      try { openidea.postMessage(JSON.stringify({ op: 'create', title: r })); } catch (e) {}
     });
     document.getElementById('autoRefresh').addEventListener('click', (e) => {
       const btn = e.target;

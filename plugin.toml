@@ -1,6 +1,6 @@
 id = "matheus.gitea-pr"
 name = "Gitea Pull Requests"
-version = "0.2.0"
+version = "0.2.1"
 description = "Open, review, comment and merge pull requests on a Gitea server from OpenIDEA."
 authors = ["Matheus"]
 license = "MIT"

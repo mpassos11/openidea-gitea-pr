@@ -268,7 +268,7 @@ impl Plugin for GiteaPr {
                 let cfg = self.load_config()?;
                 let payload: serde_json::Value = serde_json::from_str(arg.unwrap_or("{}"))
                     .map_err(|e| Error::Failed(e.to_string()))?;
-                let mut title = payload.get("title").and_then(|v| v.as_str()).map(String::from);
+                let mut title = payload.get("title").and_then(|v| v.as_str()).map(String::from).filter(|s| !s.trim().is_empty());
                 let mut head = payload.get("head").and_then(|v| v.as_str()).map(String::from).unwrap_or_default();
                 if head.trim().is_empty() {
                     if let Some(proj) = ctx.project() {
@@ -418,7 +418,12 @@ impl openidea_plugin::views::Views for GiteaPr {
                         let _ = self.run_command("gitea-pr.review", _ctx, Some(&v.to_string()));
                     }
                     "create" => {
-                        let _ = self.run_command("gitea-pr.create", _ctx, Some(&v.to_string()));
+                        if let Err(e) = self.run_command("gitea-pr.create", _ctx, Some(&v.to_string())) {
+                            let reply = serde_json::json!({"op":"error","message": e.to_string()}).to_string();
+                            let _ = host::post_view_message(VIEW, &reply);
+                        } else {
+                            let _ = self.run_command("gitea-pr.list", _ctx, Some(r#"{"state":"open"}"#));
+                        }
                     }
                     "comment" => {
                         let n = v.get("number").and_then(|x| x.as_u64()).unwrap_or(0);

@@ -1,6 +1,6 @@
 [package]
 name = "openidea-plugin-gitea-pr"
-version = "0.2.0"
+version = "0.2.1"
 edition = "2024"
 description = "Gitea pull request control for OpenIDEA: open, review, comment, merge."
 authors = ["Matheus"]
