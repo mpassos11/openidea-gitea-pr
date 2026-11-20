@@ -15,26 +15,32 @@ struct Config {
 
 #[derive(Serialize, Deserialize, Default)]
 struct PrSummary {
+    #[serde(default)]
     number: u64,
-    title: String,
-    state: String,
-    user: Login,
-    head: RefInfo,
-    base: RefInfo,
+    #[serde(default)]
+    title: Option<String>,
+    #[serde(default)]
+    state: Option<String>,
+    #[serde(default)]
+    user: Option<Login>,
+    #[serde(default)]
+    head: Option<RefInfo>,
+    #[serde(default)]
+    base: Option<RefInfo>,
     html_url: String,
     #[serde(default)]
-    labels: Vec<Label>,
+    labels: Option<Vec<Label>>,
     #[serde(default)]
-    requested_reviewers: Vec<Login>,
+    requested_reviewers: Option<Vec<Login>>,
 }
 
 #[derive(Serialize, Deserialize, Default, Clone)]
 struct Label { name: String }
 
-#[derive(Serialize, Deserialize, Default)]
+#[derive(Serialize, Deserialize, Default, Clone)]
 struct Login { login: String }
 
-#[derive(Serialize, Deserialize, Default)]
+#[derive(Serialize, Deserialize, Default, Clone)]
 struct RefInfo { label: String }
 
 impl GiteaPr {
@@ -155,9 +161,9 @@ impl Plugin for GiteaPr {
                     .map_err(|e| Error::Failed(e.to_string()))?;
                 let msg = prs.iter()
                     .map(|p| {
-                        let labels = p.labels.iter().map(|l| l.name.clone()).collect::<Vec<_>>().join(",");
-                        let reviewers = p.requested_reviewers.iter().map(|r| r.login.clone()).collect::<Vec<_>>().join(",");
-                        format!("#{} {} ({}) {} -> {} [{}] reviewers:{}", p.number, p.title, p.state, p.head.label, p.base.label, labels, reviewers)
+                        let labels = p.labels.clone().unwrap_or_default().iter().map(|l| l.name.clone()).collect::<Vec<_>>().join(",");
+                        let reviewers = p.requested_reviewers.clone().unwrap_or_default().iter().map(|r| r.login.clone()).collect::<Vec<_>>().join(",");
+                        format!("#{} {} ({}) {} -> {} [{}] reviewers:{}", p.number, p.title.clone().unwrap_or_default(), p.state.clone().unwrap_or_default(), p.head.clone().unwrap_or_default().label, p.base.clone().unwrap_or_default().label, labels, reviewers)
                     })
                     .collect::<Vec<_>>()
                     .join("\n");
