@@ -179,8 +179,26 @@ impl Plugin for GiteaPr {
                 let cfg = self.load_config()?;
                 let payload: serde_json::Value = serde_json::from_str(arg.unwrap_or("{}"))
                     .map_err(|e| Error::Failed(e.to_string()))?;
-                let title = payload.get("title").and_then(|v| v.as_str()).unwrap_or("New PR");
-                let head = payload.get("head").and_then(|v| v.as_str()).unwrap_or("");
+                let mut title = payload.get("title").and_then(|v| v.as_str()).map(String::from);
+                let mut head = payload.get("head").and_then(|v| v.as_str()).map(String::from).unwrap_or_default();
+                if head.trim().is_empty() {
+                    if let Some(proj) = ctx.project() {
+                        if let Ok(Some(status)) = proj.vcs_status() {
+                            head = status.branch.clone().unwrap_or_default();
+                        }
+                        if title.is_none() {
+                            if let Ok(commits) = proj.vcs_log(None, 1) {
+                                if let Some(c) = commits.first() {
+                                    title = Some(c.subject.clone());
+                                }
+                            }
+                        }
+                    }
+                }
+                let title = title.unwrap_or_else(|| "New PR".into());
+                if head.trim().is_empty() {
+                    return Err(Error::Failed("head branch required (pass via arg or open a project)".into()));
+                }
                 let base = payload.get("base").and_then(|v| v.as_str())
                     .map(String::from).unwrap_or_else(|| cfg.default_branch.clone().unwrap_or_else(|| "main".into()));
                 let body = serde_json::json!({ "title": title, "head": head, "base": base, "body": "" }).to_string();
@@ -191,10 +209,16 @@ impl Plugin for GiteaPr {
             }
             "gitea-pr.merge" => {
                 let cfg = self.load_config()?;
-                let number: u64 = arg.unwrap_or("").parse().map_err(|_| Error::Failed("pass PR number as arg".into()))?;
+                let (num_str, method) = arg.unwrap_or("").split_once(':').unwrap_or((arg.unwrap_or(""), "merge"));
+                let number: u64 = num_str.parse().map_err(|_| Error::Failed("pass PR number as arg (optionally number:method)".into()))?;
+                let method = match method.trim() {
+                    "squash" | "rebase" | "rebase-merge" | "merge" => method.trim(),
+                    _ => "merge",
+                };
                 let url = self.api(&cfg, &format!("pulls/{}/merge", number));
-                let _ = self.post(&url, r#"{"Do": "merge"}"#)?;
-                host::notify(NotificationLevel::Info, "Gitea PR", &format!("Merged #{}", number));
+                let body = format!(r#"{{"Do": "{}"}}"#, method);
+                let _ = self.post(&url, &body)?;
+                host::notify(NotificationLevel::Info, "Gitea PR", &format!("Merged #{} ({})", number, method));
                 Ok(None)
             }
             "gitea-pr.comment" => {
